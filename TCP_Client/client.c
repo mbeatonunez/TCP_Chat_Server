@@ -20,10 +20,14 @@
 
 int main()
 {
+    char server_response[256];
+    
+    
+    puts("[SYS_MSG]: Initializing......");
     //creating a socket
     int client_socket;
     if(client_socket = socket(AF_INET, SOCK_STREAM, 0) < 0){  //check for error
-        perror("client: socket");
+        perror("[SYS_MSG]: socket creation failed.");
         exit(EXIT_FAILURE);
     }
     //specify an address for the socket
@@ -31,16 +35,29 @@ int main()
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(9002);
     server_address.sin_addr.s_addr = INADDR_ANY;
-
+    
+    puts("[SYS_MSG]: Connection......");
     int connection_status = connect(client_socket, (struct sockaddr *) &server_address, sizeof(server_address));
     //check for connection errors
     if (connection_status == -1){
-        perror("client: connect");
+        perror("[SYS_MSG]: connection failed to stablish.");
         exit(EXIT_FAILURE);
     }
-
+    
     //receive data from server
-    char server_reso
+    if (recv(client_socket, &server_response, sizeof(server_response, 0))< 0){
+        perror("[SYS_MSG]: message not recieved.");
+        exit(EXIT_FAILURE);
+    }
+    
+    //print out the server's reply
+    printf("[SERVER]: %s\n", server_response);
+    
+    //close the socket
+    if (close(client_socket) < 0){
+        perror("[SYS_MSG]: socket failed to close.");
+        exit(EXIT_FAILURE);
+    }
 
     return 0;
 }

@@ -17,8 +17,41 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#define MAXPENDING 5
+
 int main(int argc, char **argv)
 {
-	printf("hello world\n");
+    puts("[SYS_MSG]: Initializing......");
+    char server_message[256] = "Connection Stablished." 
+    
+    //creating a socket
+    int server_socket, client_socket;
+    if(server_socket = socket(AF_INET, SOCK_STREAM, 0) < 0){  //check for error
+        perror("[SYS_MSG]: socket creation failed.");
+        exit(EXIT_FAILURE);
+    }
+     //specify an address for the socket
+    struct sockaddr_in server_address;
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(9002);
+    server_address.sin_addr.s_addr = INADDR_ANY;
+    
+    if (bind(server_socket, (struct sockaddr *) &server_address, sizeof(server_address)) < 0){
+        perror("[SYS_MSG]: Binding Failed.");
+        exit(EXIT_FAILURE);
+    }
+    puts("[SYS_MSG]: waiting for connection......");
+    if (listen(server_socket, MAXPENDING) < 0) {
+        perror("[SYS_MSG]: Listening Failed.");
+        exit(EXIT_FAILURE);
+    }
+    
+    client_socket = accept(server_socket, NULL, NULL);
+    if (client_socket < 0){
+        perror("[SYS_MSG]: Connection failed.");
+        exit(EXIT_FAILURE);
+    }
+    
+    send
 	return 0;
 }
