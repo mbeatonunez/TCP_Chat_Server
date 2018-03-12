@@ -13,15 +13,20 @@
  *              Rensselaer School of Science article -> http://www.cs.rpi.edu/~moorthy/Courses/os98/Pgms/socket.html
  */
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
 
-#define VERSION 1.0
-#define MAXPENDING 5
+#define TRUE   1
+#define FALSE  0
+
+#define VERSION 1.0.1
 
 void error(const char *msg){
   perror(msg);
@@ -37,50 +42,59 @@ int main(int argc, char **argv)
     puts("[SYS_MSG]: Initializing......");
     char buffer[255];     //holds the messages between client and server
 
-    int server_socket, client_socket, port_num, n;
-    struct sockaddr_in server_address, client_address;
-    socklen_t client_addr_len;
+    int opt = TRUE;
+    int server_socket, client_socket[5], max_client = 5;
+    int port_num, n, activity, i, valread, sd;
+    struct sockaddr_in address;
+    socklen_t addrlen;
+
+    //set of socket descriptors
+    fd_set readfds;
+
+    //initialize all client_socket[] to 0 so not checked
+     memset(client_socket, 0 ,sizeof(client_socket));
 
     //creating a socket
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0)
         error("[SYS_MSG]: socket creation failed.");
 
-    bzero((char *) &server_address, sizeof(server_address)); //clear the address
-    port_num = atoi(argv[1]);           //get port as second argument
+    //set server socket to allow multiple connections
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADD, (char *)&opt, sizeof(opt)) < 0)
+        error("[SYS_MSG]: setsockopt Failed.");
+
+    memset((char *) &address, 0 ,sizeof(address)); //clear the address
+    port_num = atoi(argv[1]);                       //get port as second argument
 
      //specify an address for the socket
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(port_num);
-    server_address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_family = AF_INET;
+    address.sin_port = htons(port_num);
+    address.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(server_socket, (struct sockaddr *) &server_address, sizeof(server_address)) < 0)
           error("[SYS_MSG]: Binding Failed.");
 
     puts("[SYS_MSG]: waiting for connection......");
-    listen(server_socket, MAXPENDING); //listen for connection
+    listen(server_socket, max_client); //listen for connection
 
-    client_addr_len = sizeof(client_address);
-    client_socket = accept(server_socket, (struct sockaddr *) &client_address, &client_addr_len);  //accept a connection
-    if (client_socket < 0)
-        perror("[SYS_MSG]: Connection failed.");
+    //accept the incoming connections
+    addrlen = sizeof(address);
 
-    puts("[SYS_MSG]: Connection Established.");
-    while(1){
-      bzero(buffer, sizeof(buffer));                   //clear message buffer
-      n = read(client_socket, buffer, sizeof(buffer)); //receive message
-      if (n < 0) error("[SYS_MSG]: Error on Reading.");          //check for message erors
+//    while(1){
+//      bzero(buffer, sizeof(buffer));                   //clear message buffer
+//      n = read(client_socket, buffer, sizeof(buffer)); //receive message
+//      if (n < 0) error("[SYS_MSG]: Error on Reading.");          //check for message erors
+//
+//      printf("[CLIENT]: %s\n", buffer);               //printf client message
+//      bzero(buffer, sizeof(buffer));                //clear message
+//      fgets(buffer, sizeof(buffer), stdin);         //get server message
+//
+//      n = write(client_socket, buffer, strlen(buffer));  //write to client
+//      if (n < 0) error("[SYS_MSG]: Error on Writting.");      //check for message erors
+//
+//      if(!strncmp("--q", buffer, 3)) break;       //exit if server types --q
+//    }
 
-      printf("[CLIENT]: %s\n", buffer);               //printf client message
-      bzero(buffer, sizeof(buffer));                //clear message
-      fgets(buffer, sizeof(buffer), stdin);         //get server message
-
-      n = write(client_socket, buffer, strlen(buffer));  //write to client
-      if (n < 0) error("[SYS_MSG]: Error on Writting.");      //check for message erors
-
-      if(!strncmp("--q", buffer, 3)) break;       //exit if server types --q
-    }
-    close(client_socket);
     close(server_socket);
 
     return 0;
