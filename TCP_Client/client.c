@@ -40,12 +40,12 @@ int main(int argc, char **argv)
       fprintf(stderr, "[SYS_MSG]: usage %s hostname port\n", argv[0]);
       exit(EXIT_FAILURE);
     }
-    
+
     //ask user for name
     printf("Enter your name: ");
-    fgets(buffer, sizeof(buffer), stdin);   
-    name[strlen(buffer-1)] = buffer;    // add new name 
-    
+    fgets(name, sizeof(name), stdin);
+    name[strlen(name)] = '\0';    // add new name 
+
     //get Server IP and port
     server = gethostbyname(argv[1]);   //get server ip address
     port_num = atoi(argv[2]);  //get port number
@@ -78,24 +78,24 @@ int main(int argc, char **argv)
     n = read(client_socket, buffer, sizeof(buffer));       //read from server
         if (n < 0) error("[SYS_MSG]: Error on Reading.");
     printf("[SERVER]: %s\n", buffer);
-        
+
     //send name to server after the connection is stablieshe
     n = send(client_socket, name, strlen(name), 0);   //write to server
         if (n < 0) error("[SYS_MSG]: Error on Writting.");    //check for message error
-    
+
     //start communication
     while(1){
         memset(buffer, '0', sizeof(buffer));                  //clear message from buffer
         memset(name, '0', sizeof(name));                      //clear name from buffer
-        
+
         n = read(client_socket, buffer, sizeof(buffer));      //read from server
         if (n < 0) error("[SYS_MSG]: Error on Reading.");
-        
+
         n = read(client_socket, name, sizeof(name));         //read from server
         if (n < 0) error("[SYS_MSG]: Error on Reading.");
-        
+
         printf("[%s]: %s\n",name, buffer);                   //print the message and the name of the sender
-        
+
         memset(buffer, '0', sizeof(buffer));                  //clear message buffer
         printf(">>> ");
         fgets(buffer, sizeof(buffer), stdin);                 //get client message
