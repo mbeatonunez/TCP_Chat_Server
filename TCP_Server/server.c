@@ -27,7 +27,7 @@
 #define FALSE  0
 #define MAX_CLIENTS 30
 
-#define VERSION 1.0.2           //allows for multiple connections to server via select()
+#define VERSION 1.0.3           //allows for multiple connections to server via select()
 
 
 
@@ -44,10 +44,9 @@ int main(int argc, char **argv)
 
     puts("[SYS_MSG]: Initializing......");
 
-    char *message = "Welcome. You have reached the server. Type --q to quit.\n"; //welcome message
+    char *message = "Welcome. You have reached the server. Type --q to quit."; //welcome message
     char buffer[255];                                               //holds the messages from client
     char *client_names[MAX_CLIENTS];                                //array of names
-    char *server_name = "SERVER";                                   //server name
     int opt = TRUE;                                                 //option to make the server address reusable
     int server_socket, new_socket, client_socket[MAX_CLIENTS];
     int port_num, activity, incomming, i;
@@ -59,7 +58,7 @@ int main(int argc, char **argv)
     fd_set readfds;
 
     //initialize all client_socket[] to 0
-     memset(client_socket, '0' ,sizeof(client_socket));
+     memset(client_socket,0 ,sizeof(client_socket));
 
     //creating a socket
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -70,7 +69,7 @@ int main(int argc, char **argv)
     if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0)
         error("[SYS_MSG]: setsockopt Failed.");
 
-    memset(&address, '0' ,sizeof(address)); //clear the address
+    memset(&address,0 ,sizeof(address)); //clear the address
     port_num = atoi(argv[1]);                       //get port as second argument
 
      //specify an address for the socket
@@ -80,15 +79,18 @@ int main(int argc, char **argv)
 
     //bind socket to address
     if (bind(server_socket, (struct sockaddr *) &address, sizeof(address)) < 0)
-          error("[SYS_MSG]: Binding Failed.");
+          error("[SYS_MSG]: Error on Binding");
 
-    puts("[SYS_MSG]: waiting for connection......");
-    listen(server_socket, MAX_CLIENTS); //listen for connection
+    printf("[SYS_MSG]: Listening on port %d......\n", port_num);
+
+    if(listen(server_socket, MAX_CLIENTS) < 0) //listen for connection
+        error("[SYS_MSG]: Error Listning");
 
     //accept the incoming connections
     addrlen = sizeof(address);
+    puts("[SYS_MSG]: Waiting for connection......");
 
-    while (1){
+    while (TRUE){
         //clear the file descriptor socket set
         FD_ZERO(&readfds);
 
@@ -111,7 +113,7 @@ int main(int argc, char **argv)
         //wait for activity on the sockets indefinitely
         activity = select(max_sd + 1, &readfds, NULL, NULL, NULL);
         // check for errors
-        if ((activity < 0) && (errno != EINTR)) error("[SYS_MSG]: Select Failed.");
+        if ((activity < 0) && (errno != EINTR)) error("[SYS_MSG]: Error Select");
         //check for incomming connections
         if (FD_ISSET(server_socket, &readfds)){
             //accept an incomming connection
@@ -153,16 +155,15 @@ int main(int argc, char **argv)
                     getpeername(sd, (struct sockaddr*)&address, &addrlen); //get socket data
 
                     printf("[SYS_MSG]:Client Disconnected.\n"               //print a diconnect message
+                    "\tName       -> %s\n"
                     "\tIP Address -> %s\n"
-                    "\tPort       -> %d",inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+                    "\tPort       -> %d\n",client_names[i],inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
 
                     close(sd); //close the socket
                     client_socket[i] = 0;  //set closed socket to 0 for reuse
-                    free(client_names[i]); //free the name used
+                    client_names[i] = 0;
                 } else {
                     buffer[incomming] = '\0';                           //add null terminator to the end of the incomming messege
-
-                    if(!strncmp("--q", buffer, 3)) break;              //exit if client types --q
 
                     printf("[%s]: %s\n", client_names[i], buffer);    //print message to the screen
 
@@ -179,7 +180,5 @@ int main(int argc, char **argv)
             }
         }
     }
-    close(server_socket);
-
     return 0;
 }
