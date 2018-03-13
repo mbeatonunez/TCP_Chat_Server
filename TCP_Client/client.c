@@ -21,7 +21,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#define VERSION 1.0
+#define VERSION 1.0.1
 
 void error(const char *msg){
   perror(msg);
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
     if (server == NULL) fprintf(stderr, "[SYS_MSG]: Invalid Server Address\n");
 
-    bzero((char *) &server_address, sizeof(server_address)); //zero out server object
+    memset((char *) &server_address, 0 ,sizeof(server_address)); //zero out server object
 
     //specify an address for the socket
     server_address.sin_family = AF_INET;
@@ -70,12 +70,12 @@ int main(int argc, char **argv)
     puts("[SYS_MSG]: Connection Established.");
     //start communication
     while(1){
-      bzero(buffer, sizeof(buffer));                    //clear message buffer
+      memset(buffer, 0, sizeof(buffer));                    //clear message buffer
       fgets(buffer, sizeof(buffer), stdin);             //get server message
       n = write(client_socket, buffer, strlen(buffer));  //write to client
       if (n < 0) error("[SYS_MSG]: Error on Writting.");      //check for message erors
 
-      bzero(buffer, sizeof(buffer));
+      memset(buffer, 0, sizeof(buffer));
       n = read(client_socket, buffer, sizeof(buffer)); //receive message
       if (n < 0) error("[SYS_MSG]: Error on Reading.");
 
