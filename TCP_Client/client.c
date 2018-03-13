@@ -1,7 +1,7 @@
 /*
  * Name:        TCP Chat Server (TCP-Client)
  * Author:      Moises Beato Nunez
- * Date:        07 Mar 2018
+ * Date:        13 Mar 2018
  * Description: My attempt at a TCP Chat Server meant to help me practice my C system programming. As I get better,
  *              so does the chat server. I'm using various sources and tutorials to get me started
  *
@@ -21,7 +21,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#define VERSION 1.0.1
+#define VERSION 1.0.2
 
 void error(const char *msg){
   perror(msg);
@@ -31,6 +31,7 @@ void error(const char *msg){
 int main(int argc, char **argv)
 {
     char buffer[255];
+    char name[30];    //name up to 30 chars
     int client_socket, port_num, n;
     struct sockaddr_in server_address;  //create server object
     struct hostent *server;
@@ -39,7 +40,12 @@ int main(int argc, char **argv)
       fprintf(stderr, "[SYS_MSG]: usage %s hostname port\n", argv[0]);
       exit(EXIT_FAILURE);
     }
-
+    
+    //ask user for name
+    printf("Enter your name: ");
+    fgets(buffer, sizeof(buffer), stdin);   
+    name[strlen(buffer-1)] = buffer;    // add new name 
+    
     //get Server IP and port
     server = gethostbyname(argv[1]);   //get server ip address
     port_num = atoi(argv[2]);  //get port number
@@ -54,7 +60,7 @@ int main(int argc, char **argv)
 
     if (server == NULL) fprintf(stderr, "[SYS_MSG]: Invalid Server Address\n");
 
-    memset((char *) &server_address, 0 ,sizeof(server_address)); //zero out server object
+    memset(&server_address, '0' ,sizeof(server_address)); //zero out server object
 
     //specify an address for the socket
     server_address.sin_family = AF_INET;
@@ -68,20 +74,34 @@ int main(int argc, char **argv)
       error("[SYS_MSG]: connection failed to stablish.");
 
     puts("[SYS_MSG]: Connection Established.");
+    //wait for server welcome message
+    n = read(client_socket, buffer, sizeof(buffer));       //read from server
+        if (n < 0) error("[SYS_MSG]: Error on Reading.");
+    printf("[SERVER]: %s\n", buffer);
+        
+    //send name to server after the connection is stablieshe
+    n = send(client_socket, name, strlen(name), 0);   //write to server
+        if (n < 0) error("[SYS_MSG]: Error on Writting.");    //check for message error
+    
     //start communication
     while(1){
-      memset(buffer, 0, sizeof(buffer));                    //clear message buffer
-      fgets(buffer, sizeof(buffer), stdin);             //get server message
-      n = write(client_socket, buffer, strlen(buffer));  //write to client
-      if (n < 0) error("[SYS_MSG]: Error on Writting.");      //check for message erors
-
-      memset(buffer, 0, sizeof(buffer));
-      n = read(client_socket, buffer, sizeof(buffer)); //receive message
-      if (n < 0) error("[SYS_MSG]: Error on Reading.");
-
-      printf("[SERVER]: %s\n", buffer);
-
-      if(!strncmp("--q", buffer, 3)) break;       //exit if server types --q
+        memset(buffer, '0', sizeof(buffer));                  //clear message from buffer
+        memset(name, '0', sizeof(name));                      //clear name from buffer
+        
+        n = read(client_socket, buffer, sizeof(buffer));      //read from server
+        if (n < 0) error("[SYS_MSG]: Error on Reading.");
+        
+        n = read(client_socket, name, sizeof(name));         //read from server
+        if (n < 0) error("[SYS_MSG]: Error on Reading.");
+        
+        printf("[%s]: %s\n",name, buffer);                   //print the message and the name of the sender
+        
+        memset(buffer, '0', sizeof(buffer));                  //clear message buffer
+        printf(">>> ");
+        fgets(buffer, sizeof(buffer), stdin);                 //get client message
+        if(!strncmp("--q", buffer, 3)) break;                 //exit types --q
+        n = send(client_socket, buffer, strlen(buffer), 0);   //write to server
+        if (n < 0) error("[SYS_MSG]: Error on Writting.");    //check for message error
     }
     close(client_socket);
     return 0;
