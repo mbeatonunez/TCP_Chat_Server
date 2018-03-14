@@ -46,10 +46,10 @@ int main(int argc, char **argv)
 
     char *message = "Welcome. You have reached the server. Type --q to quit."; //welcome message
     char buffer[255];                                               //holds the messages from client
-    char *client_names[MAX_CLIENTS];                                //array of names
+    char client_name[15];
     int opt = TRUE;                                                 //option to make the server address reusable
     int server_socket, new_socket, client_socket[MAX_CLIENTS];
-    int port_num, activity, incomming, i;
+    int port_num, activity, incomming, clntname, i;
     int sd, max_sd;                                                  //holds socket descriptors
     struct sockaddr_in address;
     socklen_t addrlen;                                              //address length
@@ -135,11 +135,9 @@ int main(int argc, char **argv)
                 //if an empty spot is available
                 if (client_socket[i] == 0){
                     client_socket[i] = new_socket;                          //add new socket to empty spot
-                    incomming = read(new_socket, buffer, sizeof(buffer));   //get clients name after connection is established
-                    buffer[incomming] = '\0';                               //add null terminator at the end of the
-                    client_names[i] = (char*)malloc(strlen(buffer));        //allocate some memory
-                    client_names[i] = buffer;                               //add client client_names
-                    printf("[SYS_MSG]: %s has been added to the client list.\n", client_names[i]);
+                    clntname = read(new_socket, client_name, sizeof(client_name));   //get clients name after connection is established
+                    client_name[clntname] = '\0';                               //add null terminator at the end of the
+                    printf("[SYS_MSG]: %s has been added to the client list.\n", client_name);
                     break;
                 }
             }
@@ -149,7 +147,8 @@ int main(int argc, char **argv)
             sd = client_socket[i];
             //check for activity in the socket
             if (FD_ISSET(sd, &readfds)){
-                incomming = read(sd, buffer, sizeof(buffer));   //read incomming message
+                clntname = read(new_socket, client_name, sizeof(client_name));  //read name of sender
+                incomming = read(sd, buffer, sizeof(buffer));                   //read incomming message
 
                 if (incomming == 0){                           //check for a disconnection
                     getpeername(sd, (struct sockaddr*)&address, &addrlen); //get socket data
@@ -157,22 +156,23 @@ int main(int argc, char **argv)
                     printf("[SYS_MSG]:Client Disconnected.\n"               //print a diconnect message
                     "\tName       -> %s\n"
                     "\tIP Address -> %s\n"
-                    "\tPort       -> %d\n",client_names[i],inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+                    "\tPort       -> %d\n",client_name,inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
 
                     close(sd); //close the socket
                     client_socket[i] = 0;  //set closed socket to 0 for reuse
-                    client_names[i] = 0;
+
                 } else {
+                    client_name[clntname] = '\0';
                     buffer[incomming] = '\0';                           //add null terminator to the end of the incomming messege
 
-                    printf("[%s]: %s\n", client_names[i], buffer);    //print message to the screen
+                    printf("[%s]: %s\n", client_name, buffer);    //print message to the screen
 
                     //echo message back to all clients, including the name of the message sender
                     for (int j = 0; j < MAX_CLIENTS; j++){
                         if (client_socket[j] == 0) continue; //skip empty sockets
                         else{
                             sd = client_socket[j];
-                            send(sd, client_names[i], strlen(client_names[i]), 0);
+                            send(sd, client_name, strlen(client_name), 0);
                             send(sd, buffer, strlen(buffer), 0);
                         }
                     }
