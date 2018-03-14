@@ -21,7 +21,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#define VERSION 1.0.3
+#define VERSION 1.0.4
 
 void error(const char *msg){
   perror(msg);
@@ -31,7 +31,7 @@ void error(const char *msg){
 int main(int argc, char **argv)
 {
     char buffer[255];
-    char name[30];    //name up to 30 chars
+    char name[15], newname[15];    //name up to 15 chars
     int client_socket, port_num, n;
     struct sockaddr_in server_address;  //create server object
     struct hostent *server;
@@ -76,12 +76,12 @@ int main(int argc, char **argv)
     puts("[SYS_MSG]: Connection Established.");
     //wait for server welcome message
     n = read(client_socket, buffer, sizeof(buffer));       //read from server
-        if (n < 0) error("[SYS_MSG]: Error on Reading");
+    if (n < 0) error("[SYS_MSG]: Error on Reading");
     printf("[SERVER]: %s\n", buffer);
 
     //send name to server after the connection is stablieshe
     n = send(client_socket, name, strlen(name), 0);   //write to server
-        if (n < 0) error("[SYS_MSG]: Error on Writting");    //check for message error
+    if (n < 0) error("[SYS_MSG]: Error on Writting");    //check for message error
 
     //start communication
     while(1){
@@ -89,19 +89,21 @@ int main(int argc, char **argv)
         printf(">>> ");
         fgets(buffer, sizeof(buffer), stdin);                 //get client message
         if(!strncmp("--q", buffer, 3)) break;                 //exit types --q
+        n = send(client_socket, name, strlen(name), 0);       //write to server
+        if (n < 0) error("[SYS_MSG]: Error on Writting");
         n = send(client_socket, buffer, strlen(buffer), 0);   //write to server
         if (n < 0) error("[SYS_MSG]: Error on Writting.");    //check for message error
 
-        memset(buffer,0 , sizeof(buffer));                  //clear message from buffer
-        memset(name, 0, sizeof(name));                      //clear name from buffer
+        memset(buffer,0 , sizeof(buffer));                      //clear message from buffer
+        memset(newname, 0, sizeof(name));                      //clear name from buffer
 
-        n = read(client_socket, buffer, sizeof(buffer));      //read from server
+        n = read(client_socket, newname, sizeof(newname));      //read from server
         if (n < 0) error("[SYS_MSG]: Error on Reading.");
-
-        n = read(client_socket, name, sizeof(name));         //read from server
+        newname[n] = '\0';                                      //end name after last char
+        n = read(client_socket, buffer, sizeof(buffer));        //read from server
         if (n < 0) error("[SYS_MSG]: Error on Reading.");
-
-        printf("[%s]: %s\n",name, buffer);                   //print the message and the name of the sender
+        buffer[n] = '\0';                                       //end buffer after last char
+        printf("[%s]: %s\n",newname, buffer);                   //print the message and the name of the sender
 
 
     }
