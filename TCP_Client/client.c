@@ -21,7 +21,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#define VERSION 1.0.4
+#define VERSION 1.0.5
 
 void error(const char *msg){
   perror(msg);
@@ -32,9 +32,8 @@ int main(int argc, char **argv)
 {
     char buffer[255];
     char name[15], newname[15];    //name up to 15 chars
-    int client_socket, port_num, n;
-    struct sockaddr_in server_address;  //create server object
-    struct hostent *server;
+    int client_socket, n;
+    struct addrinfo address, *res, *p; 
 
     if (argc < 3){
       fprintf(stderr, "[SYS_MSG]: usage %s hostname port\n", argv[0]);
@@ -47,33 +46,46 @@ int main(int argc, char **argv)
     name[strlen(name)-1] = '\0';    // add new name
 
     //get Server IP and port
-    server = gethostbyname(argv[1]);   //get server ip address
-    port_num = atoi(argv[2]);  //get port number
+//    server = gethostbyname(argv[1]);   //get server ip address
+//    port_num = atoi(argv[2]);  //get port number
 
-
-    puts("[SYS_MSG]: Initializing......");
-
-    //creating a socket
-    client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_socket < 0) error("[SYS_MSG]: Error on Socket"); //check for errors
-
-
-    if (server == NULL) fprintf(stderr, "[SYS_MSG]: Invalid Server Address\n");
-
-    memset(&server_address, '0' ,sizeof(server_address)); //zero out server object
-
+    memset(&address, '0' ,sizeof(address)); //zero out server object
+    
     //specify an address for the socket
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(port_num);
-    bcopy((char *) server->h_addr, (char *) &server_address.sin_addr.s_addr, server->h_length);
-
+    address.ai_family = AF_INET;
+    address.ai_socktype = SOCK_STREAM;
+    puts("[SYS_MSG]: Initializing......");
+    
+    int status = getaddrinfo(argev[1], argv[2] , &address, &res);
+    if (status < 0) 
+        error("[SYS_MSG]: getaddrinfo fail.");
+    
+    // loop through all the results and connect to the first we can
     puts("[SYS_MSG]: Connection......");
-    int connection_status = connect(client_socket, (struct sockaddr *) &server_address, sizeof(server_address));
-    //check for connection errors
-    if (connection_status == -1)
-      error("[SYS_MSG]: Error on Connection");
+    for(p = res; p != NULL; p = p->ai_next) {
+        //creating a socket
+        if ((client_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+            error("[SYS_MSG]: Error on Socket"); //check for errors
+            continue;
+        }
 
+        if (connect(client_socket, p->ai_addr, p->ai_addrlen) == -1) {
+            close(client_socket);
+            error("[SYS_MSG]: Error on Connection");
+            continue;
+        }
+
+        break;
+    } 
+    
+    if (p == NULL) {
+        fprintf(stderr, "client: failed to connect\n");
+        return 2;
+    }
+    
     puts("[SYS_MSG]: Connection Established.");
+    freeaddrinfo(res); // all done with this structure
+    
     //wait for server welcome message
     n = read(client_socket, buffer, sizeof(buffer));       //read from server
     if (n < 0) error("[SYS_MSG]: Error on Reading");
@@ -95,7 +107,7 @@ int main(int argc, char **argv)
         if (n < 0) error("[SYS_MSG]: Error on Writting.");    //check for message error
 
         memset(buffer,0 , sizeof(buffer));                      //clear message from buffer
-        memset(newname, 0, sizeof(name));                      //clear name from buffer
+        memset(newname, 0, sizeof(newname));                      //clear name from buffer
 
         n = read(client_socket, newname, sizeof(newname));      //read from server
         if (n < 0) error("[SYS_MSG]: Error on Reading.");
