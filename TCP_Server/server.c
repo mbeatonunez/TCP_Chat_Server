@@ -1,7 +1,7 @@
 /*
  * Name:        TCP Chat Server (TCP-Server)
  * Author:      Moises Beato Nunez
- * Date:        13 Mar 2018
+ * Date:        16 Mar 2018
  * Description: My attempt at a TCP Chat Server meant to help me practice my C system programming. As I get better,
  *              so does the chat server. I'm using various sources and tutorials to get me started
  *
@@ -13,18 +13,19 @@
  *              Rensselaer School of Science article -> http://www.cs.rpi.edu/~moorthy/Courses/os98/Pgms/socket.html
  */
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <unistd.h>
-#include <arpa/inet.h>
+#include <errno.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/wait.h>
+#include <signal.h>
 #include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
 
-#define TRUE   1
-#define FALSE  0
 #define MAX_CLIENTS 30
 
 #define VERSION 1.0.3           //allows for multiple connections to server via select()
@@ -47,21 +48,29 @@ int main(int argc, char **argv)
     char *message = "Welcome. You have reached the server. Type --q to quit."; //welcome message
     char buffer[255];                                               //holds the messages from client
     char client_name[15];
-    int opt = TRUE;                                                 //option to make the server address reusable
+    int opt = 1;                                                 //option to make the server address reusable
     int server_socket, new_socket, client_socket[MAX_CLIENTS];
-    int port_num, activity, incomming, clntname, i;
+    int activity, incomming, clntname, i;
     int sd, max_sd;                                                  //holds socket descriptors
-    struct sockaddr_in address;
-    socklen_t addrlen;                                              //address length
-
+    struct addrinfo address, *res;
+    int port_num = atoi(argv[1]);
     //set of socket descriptors
     fd_set readfds;
 
+    memset(&address,0 ,sizeof(address)); //clear the address
+    //port_num = atoi(argv[1]);                       //get port as second argument
+
+     //specify an address for the socket
+    address.ai_family = AF_INET;
+    address.ai_socktype = SOCK_STREAM;
+    address.ai_flags = AI_PASSIVE;
+
+    int status = getaddrinfo(NULL,argv[1] , &address, &res);
     //initialize all client_socket[] to 0
      memset(client_socket,0 ,sizeof(client_socket));
 
     //creating a socket
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    server_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if (server_socket < 0)
         error("[SYS_MSG]: socket creation failed.");
 
@@ -69,16 +78,8 @@ int main(int argc, char **argv)
     if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0)
         error("[SYS_MSG]: setsockopt Failed.");
 
-    memset(&address,0 ,sizeof(address)); //clear the address
-    port_num = atoi(argv[1]);                       //get port as second argument
-
-     //specify an address for the socket
-    address.sin_family = AF_INET;
-    address.sin_port = htons(port_num);
-    address.sin_addr.s_addr = INADDR_ANY;
-
     //bind socket to address
-    if (bind(server_socket, (struct sockaddr *) &address, sizeof(address)) < 0)
+    if (bind(server_socket,  res->ai_addr, res->ai_addrlen) < 0)
           error("[SYS_MSG]: Error on Binding");
 
     printf("[SYS_MSG]: Listening on port %d......\n", port_num);
@@ -87,10 +88,9 @@ int main(int argc, char **argv)
         error("[SYS_MSG]: Error Listning");
 
     //accept the incoming connections
-    addrlen = sizeof(address);
     puts("[SYS_MSG]: Waiting for connection......");
 
-    while (TRUE){
+    while (1){
         //clear the file descriptor socket set
         FD_ZERO(&readfds);
 
@@ -117,13 +117,13 @@ int main(int argc, char **argv)
         //check for incomming connections
         if (FD_ISSET(server_socket, &readfds)){
             //accept an incomming connection
-            new_socket = accept(server_socket, (struct sockaddr*)&address, &addrlen);
+            new_socket = accept(server_socket, (struct sockaddr*)&address, &res->ai_addrlen);
             if (new_socket < 0) error("[SYS_MSG]: Incomming Connection Not Accepted."); //check for errors
             //print the new connection's data
-            printf("[SYS_MSG]: New Connection.\n"
-            "\tSocket FD  -> %d\n"
-            "\tIP Address -> %s\n"
-            "\tPort       -> %d\n", new_socket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+            // printf("[SYS_MSG]: New Connection.\n"
+            // "\tSocket FD  -> %d\n"
+            // "\tIP Address -> %s\n"
+            // "\tPort       -> %d\n", new_socket, , ntohs(port_num));
             //send the new connection a greeting
             if (send(new_socket, message, strlen(message), 0) != strlen(message))
                 error("[SYS_MSG]: Send failed.");  //check for errors
@@ -151,12 +151,12 @@ int main(int argc, char **argv)
                 incomming = read(sd, buffer, sizeof(buffer));                   //read incomming message
 
                 if (incomming == 0){                           //check for a disconnection
-                    getpeername(sd, (struct sockaddr*)&address, &addrlen); //get socket data
+                    getpeername(sd, (struct sockaddr*)&address, &res->ai_addrlen); //get socket data
 
-                    printf("[SYS_MSG]:Client Disconnected.\n"               //print a diconnect message
-                    "\tName       -> %s\n"
-                    "\tIP Address -> %s\n"
-                    "\tPort       -> %d\n",client_name,inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+                    // printf("[SYS_MSG]:Client Disconnected.\n"               //print a diconnect message
+                    // "\tName       -> %s\n"
+                    // "\tIP Address -> %s\n"
+                    // "\tPort       -> %d\n",client_name,, ntohs(port_num));
 
                     close(sd); //close the socket
                     client_socket[i] = 0;  //set closed socket to 0 for reuse
